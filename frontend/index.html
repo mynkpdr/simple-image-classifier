@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vision Classifier</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+        .hero-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 0; margin-bottom: 40px; }
+        .card { border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        #imagePreview { max-width: 100%; border-radius: 10px; display: none; margin-top: 15px; }
+        .drop-zone { border: 2px dashed #dee2e6; border-radius: 15px; padding: 40px; text-align: center; transition: 0.3s; cursor: pointer; }
+        .drop-zone:hover { border-color: #764ba2; background: #f1f0ff; }
+        .badge-confidence { font-size: 0.9rem; padding: 8px 15px; border-radius: 20px; }
+        .spinner-border { width: 3rem; height: 3rem; }
+    </style>
+</head>
+<body>
+
+<div class="hero-section text-center">
+    <div class="container">
+        <h1 class="display-4 fw-800">AI Image Classifier</h1>
+        <p class="lead">Upload an image and let GPT-4 Vision analyze it instantly.</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card p-4 mb-4">
+                <div class="drop-zone" id="dropZone">
+                    <p class="mb-2">Click to upload or drag & drop</p>
+                    <small class="text-muted">Supports JPG, PNG (Max 1MB for API)</small>
+                    <input type="file" id="fileInput" hidden accept="image/*">
+                </div>
+                <img id="imagePreview" src="" alt="Preview">
+                <button id="classifyBtn" class="btn btn-primary btn-lg w-100 mt-4" disabled>
+                    Classify Image
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div id="loading" class="text-center d-none">
+                <div class="spinner-border text-primary mt-5" role="status"></div>
+                <p class="mt-3">Analyzing pixels with AI...</p>
+            </div>
+
+            <div id="resultCard" class="card p-4 d-none">
+                <h3 class="fw-bold mb-3">Classification Result</h3>
+                <div class="d-flex align-items-center mb-3">
+                    <span class="h4 mb-0 me-3 text-capitalize" id="resCategory">---</span>
+                    <span class="badge bg-success badge-confidence" id="resConfidence">0% Match</span>
+                </div>
+                <hr>
+                <h5>Analysis</h5>
+                <p id="resExplanation" class="text-muted leading-relaxed"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://localhost:8000";
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const classifyBtn = document.getElementById('classifyBtn');
+    const preview = document.getElementById('imagePreview');
+
+    // Trigger file browser
+    dropZone.onclick = () => fileInput.click();
+
+    // Show preview when file selected
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                preview.src = event.target.result;
+                preview.style.display = 'block';
+                classifyBtn.disabled = false;
+            }
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Handle API Call
+    classifyBtn.onclick = async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        // UI State
+        classifyBtn.disabled = true;
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('resultCard').classList.add('d-none');
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch(`${API_URL}/classify`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById('resCategory').innerText = data.classification.category;
+                document.getElementById('resConfidence').innerText = (data.classification.confidence * 100).toFixed(1) + "% Match";
+                document.getElementById('resExplanation').innerText = data.classification.explanation;
+                document.getElementById('resultCard').classList.remove('d-none');
+            } else {
+                alert("Error: " + data.detail);
+            }
+        } catch (err) {
+            alert("Could not connect to the backend server.");
+            console.error(err);
+        } finally {
+            document.getElementById('loading').classList.add('d-none');
+            classifyBtn.disabled = false;
+        }
+    };
+</script>
+
+</body>
+</html>
